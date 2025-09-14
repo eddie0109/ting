@@ -3,451 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>온라인 생존자 vs 살인마 게임</title>
+    <title>생존자 vs 살인마 게임</title>
     <style>
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            margin: 0;
-            padding: 0;
+            font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             color: white;
-        }
-
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
-        }
-
-        .screen.active {
+            min-height: 100vh;
             display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            min-width: 400px;
+            text-align: center;
         }
 
         .title {
-            font-size: 3.5rem;
+            font-size: 2.5rem;
             font-weight: bold;
             margin-bottom: 2rem;
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            text-align: center;
-            animation: titleGlow 2s ease-in-out infinite alternate;
         }
 
-        @keyframes titleGlow {
-            from { filter: brightness(1) drop-shadow(0 0 20px rgba(255,107,107,0.5)); }
-            to { filter: brightness(1.2) drop-shadow(0 0 30px rgba(78,205,196,0.8)); }
+        .screen {
+            display: none;
         }
 
-        .main-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            align-items: center;
+        .screen.active {
+            display: block;
         }
 
-        .main-btn {
+        .btn {
             background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             border: none;
-            padding: 1rem 2.5rem;
-            font-size: 1.2rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
             font-weight: bold;
-            color: white;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-            min-width: 250px;
-        }
-
-        .main-btn:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
-        }
-
-        .create-btn {
-            background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
-            box-shadow: 0 8px 32px rgba(255, 154, 158, 0.3);
-        }
-
-        /* 방 목록 화면 */
-        .room-list-container {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 20px;
-            padding: 2rem;
-            min-width: 700px;
-            max-width: 800px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .room-list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .room-list-title {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #4ecdc4;
-        }
-
-        .refresh-btn {
-            background: linear-gradient(45deg, #4ecdc4, #44a08d);
-            border: none;
-            padding: 0.8rem 1.5rem;
-            font-size: 0.9rem;
             color: white;
             border-radius: 25px;
             cursor: pointer;
             transition: all 0.3s ease;
+            margin: 0.5rem;
+            min-width: 200px;
         }
 
-        .refresh-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .rooms-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .room-card {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 15px;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .room-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-            border-color: #4ecdc4;
-            background: rgba(78, 205, 196, 0.1);
-        }
-
-        .room-card.full {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .room-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .room-name {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #4ecdc4;
-        }
-
-        .room-status {
-            padding: 0.3rem 0.8rem;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-
-        .waiting {
-            background: rgba(243, 156, 18, 0.3);
-            color: #f39c12;
-            border: 1px solid #f39c12;
-        }
-
-        .playing {
-            background: rgba(231, 76, 60, 0.3);
-            color: #e74c3c;
-            border: 1px solid #e74c3c;
-        }
-
-        .room-players {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-        }
-
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .player-role-icon {
-            font-size: 1.2rem;
-        }
-
-        .empty-slot {
-            color: rgba(255,255,255,0.5);
-            font-style: italic;
-        }
-
-        .no-rooms {
-            text-align: center;
-            color: rgba(255,255,255,0.7);
-            font-size: 1.1rem;
-            padding: 2rem;
-        }
-
-        /* 로비 화면 */
-        .lobby-container {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 20px;
-            padding: 2rem;
-            min-width: 600px;
-            text-align: center;
-        }
-
-        .room-code-display {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #ffd700;
-            margin: 1rem 0;
-            letter-spacing: 5px;
-            text-shadow: 2px 2px 10px rgba(255, 215, 0, 0.5);
-        }
-
-        .players-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-
-        .player-card {
-            background: rgba(255,255,255,0.1);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 15px;
-            padding: 1.5rem;
-            min-height: 120px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .player-card.occupied {
-            border-color: #4ecdc4;
-            background: rgba(78, 205, 196, 0.2);
-            box-shadow: 0 0 20px rgba(78, 205, 196, 0.3);
-        }
-
-        .player-card.survivor {
-            border-color: #45b7d1;
-        }
-
-        .player-card.killer {
-            border-color: #ff6b6b;
-        }
-
-        .player-role {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .player-name {
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-
-        .waiting-status {
-            margin: 1rem 0;
-            font-size: 1.1rem;
-            color: #ffd700;
-        }
-
-        .lobby-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1.5rem;
-        }
-
-        .lobby-btn {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border: none;
-            padding: 0.8rem 1.5rem;
-            font-size: 1rem;
-            color: white;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .lobby-btn:hover {
+        .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         }
 
-        .start-btn {
-            background: linear-gradient(45deg, #ff6b6b, #ffa500);
+        .btn-create {
+            background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 100%);
         }
 
-        /* 게임 화면 */
-        .game-screen {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            padding: 0;
-        }
-
-        .game-container {
-            position: relative;
-            width: 900px;
-            height: 600px;
-            background: linear-gradient(45deg, #34495e, #2c3e50);
-            border: 4px solid #e74c3c;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-
-        .game-ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            z-index: 100;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
-
-        .player {
-            position: absolute;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            transition: all 0.1s ease;
-            z-index: 50;
-        }
-
-        .survivor-player {
-            background: linear-gradient(45deg, #3498db, #2980b9);
-            color: white;
-            border: 3px solid #3498db;
-            box-shadow: 0 0 20px rgba(52, 152, 219, 0.6);
-        }
-
-        .killer-player {
-            background: linear-gradient(45deg, #e74c3c, #c0392b);
-            color: white;
-            border: 3px solid #8e44ad;
-            box-shadow: 0 0 25px rgba(231, 76, 60, 0.8);
-            animation: killerPulse 1.5s infinite;
-        }
-
-        @keyframes killerPulse {
-            0%, 100% { 
-                border-color: #8e44ad;
-                transform: scale(1);
-            }
-            50% { 
-                border-color: #9b59b6;
-                transform: scale(1.05);
-            }
-        }
-
-        .obstacle {
-            position: absolute;
-            background: linear-gradient(45deg, #7f8c8d, #95a5a6);
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-
-        .health-bar, .timer-bar {
-            width: 200px;
-            height: 8px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-
-        .health-fill, .timer-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .health-fill {
-            background: linear-gradient(45deg, #2ecc71, #27ae60);
-        }
-
-        .timer-fill {
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-        }
-
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 14px;
-            backdrop-filter: blur(10px);
-        }
-
-        .game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.95);
-            color: white;
-            padding: 3rem;
-            border-radius: 25px;
-            text-align: center;
-            font-size: 1.5rem;
-            z-index: 1000;
-            display: none;
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .game-over.show {
-            display: block;
-        }
-
-        .input-group {
-            margin-bottom: 1.5rem;
+        .btn-back {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
         }
 
         .input-field {
@@ -455,11 +81,11 @@
             border: 2px solid rgba(255,255,255,0.3);
             color: white;
             padding: 12px 20px;
-            border-radius: 25px;
+            border-radius: 15px;
             font-size: 16px;
             text-align: center;
-            width: 300px;
-            backdrop-filter: blur(10px);
+            width: 100%;
+            margin-bottom: 1rem;
         }
 
         .input-field::placeholder {
@@ -469,722 +95,624 @@
         .input-field:focus {
             outline: none;
             border-color: #4ecdc4;
-            box-shadow: 0 0 20px rgba(78, 205, 196, 0.3);
         }
 
-        .connection-status {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
+        .room-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+
+        .room-item {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .room-item:hover {
+            background: rgba(78, 205, 196, 0.2);
+            border-color: #4ecdc4;
+        }
+
+        .room-item.full {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .player-card {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 1rem;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player-card.occupied {
+            border-color: #4ecdc4;
+            background: rgba(78, 205, 196, 0.2);
+        }
+
+        .game-area {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(45deg, #34495e, #2c3e50);
+            border: 4px solid #e74c3c;
             border-radius: 20px;
-            font-size: 14px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
             font-weight: bold;
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid #2ecc71;
-            color: #2ecc71;
+            transition: all 0.1s ease;
         }
 
-        .back-btn {
-            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        .survivor {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: 3px solid #3498db;
+        }
+
+        .killer {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border: 3px solid #8e44ad;
+        }
+
+        .obstacle {
+            position: absolute;
+            background: linear-gradient(45deg, #7f8c8d, #95a5a6);
+            border-radius: 10px;
+        }
+
+        .game-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+
+        .game-controls {
+            text-align: center;
             margin-top: 1rem;
+            font-size: 14px;
         }
 
-        @media (max-width: 768px) {
-            .title {
-                font-size: 2.5rem;
-            }
-            
-            .game-container {
-                width: 100vw;
-                height: 70vh;
-                border-radius: 0;
-                border: none;
-            }
-            
-            .room-list-container, .lobby-container {
-                min-width: 90vw;
-                margin: 0 1rem;
-            }
-            
-            .rooms-grid {
-                grid-template-columns: 1fr;
-            }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 200;
+            display: none;
+        }
+
+        .game-over.show {
+            display: block;
+        }
+
+        .status {
+            margin: 1rem 0;
+            color: #4ecdc4;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="connection-status" id="connectionStatus">온라인</div>
-
-    <!-- 메인 화면 -->
-    <div class="screen active" id="mainScreen">
-        <div class="title">🎮 생존자 vs 살인마</div>
-        <div class="main-buttons">
-            <button class="main-btn create-btn" id="createRoomBtn">방 만들기</button>
-            <button class="main-btn" id="joinRoomBtn">방 목록 보기</button>
+    <div class="container">
+        <!-- 메인 화면 -->
+        <div id="mainScreen" class="screen active">
+            <h1 class="title">생존자 vs 살인마</h1>
+            <button class="btn btn-create" onclick="showCreateRoom()">방 만들기</button>
+            <button class="btn" onclick="showRoomList()">방 목록</button>
         </div>
-    </div>
 
-    <!-- 방 만들기 화면 -->
-    <div class="screen" id="createScreen">
-        <div class="lobby-container">
+        <!-- 방 만들기 화면 -->
+        <div id="createScreen" class="screen">
             <h2>방 만들기</h2>
-            <div class="input-group">
-                <input type="text" id="roomNameInput" class="input-field" placeholder="방 이름을 입력하세요" maxlength="20">
-            </div>
-            <div class="input-group">
-                <input type="text" id="hostNameInput" class="input-field" placeholder="닉네임을 입력하세요" maxlength="12">
-            </div>
-            <div class="lobby-buttons">
-                <button class="lobby-btn" id="confirmCreateBtn">방 만들기</button>
-                <button class="lobby-btn back-btn" id="backFromCreateBtn">돌아가기</button>
-            </div>
+            <input type="text" id="roomName" class="input-field" placeholder="방 이름" maxlength="20">
+            <input type="text" id="hostName" class="input-field" placeholder="닉네임" maxlength="15">
+            <button class="btn" onclick="createRoom()">방 만들기</button>
+            <button class="btn btn-back" onclick="showMain()">돌아가기</button>
         </div>
-    </div>
 
-    <!-- 방 목록 화면 -->
-    <div class="screen" id="roomListScreen">
-        <div class="room-list-container">
-            <div class="room-list-header">
-                <div class="room-list-title">게임 방 목록</div>
-                <button class="refresh-btn" id="refreshRoomsBtn">새로고침</button>
+        <!-- 방 목록 화면 -->
+        <div id="roomListScreen" class="screen">
+            <h2>방 목록</h2>
+            <button class="btn" onclick="loadRooms()" style="margin-bottom: 1rem;">새로고침</button>
+            <div id="roomList" class="room-list">
+                <div style="color: #999;">방 목록을 불러오는 중...</div>
             </div>
-            <div class="rooms-grid" id="roomsGrid">
-                <!-- 방 목록이 동적으로 생성됩니다 -->
-            </div>
-            <div class="lobby-buttons">
-                <button class="lobby-btn back-btn" id="backFromRoomsBtn">돌아가기</button>
-            </div>
+            <button class="btn btn-back" onclick="showMain()">돌아가기</button>
         </div>
-    </div>
 
-    <!-- 닉네임 입력 화면 -->
-    <div class="screen" id="joinScreen">
-        <div class="lobby-container">
-            <h2>방 참가하기</h2>
-            <div class="input-group">
-                <input type="text" id="joinNameInput" class="input-field" placeholder="닉네임을 입력하세요" maxlength="12">
-            </div>
-            <div class="lobby-buttons">
-                <button class="lobby-btn" id="confirmJoinBtn">참가하기</button>
-                <button class="lobby-btn back-btn" id="backFromJoinBtn">돌아가기</button>
-            </div>
+        <!-- 참가 화면 -->
+        <div id="joinScreen" class="screen">
+            <h2>방 참가</h2>
+            <p id="joinRoomName" style="color: #4ecdc4; margin-bottom: 1rem;"></p>
+            <input type="text" id="guestName" class="input-field" placeholder="닉네임" maxlength="15">
+            <button class="btn" onclick="joinRoom()">참가하기</button>
+            <button class="btn btn-back" onclick="showRoomList()">돌아가기</button>
         </div>
-    </div>
 
-    <!-- 로비 화면 -->
-    <div class="screen" id="lobbyScreen">
-        <div class="lobby-container">
-            <h2 id="roomTitle">게임 로비</h2>
+        <!-- 로비 화면 -->
+        <div id="lobbyScreen" class="screen">
+            <h2 id="lobbyRoomName">게임 로비</h2>
             <div class="players-grid">
-                <div class="player-card survivor" id="survivorCard">
-                    <div class="player-role">🏃‍♂️</div>
+                <div class="player-card" id="survivorCard">
+                    <div style="font-size: 2rem;">🏃‍♂️</div>
                     <div>생존자</div>
-                    <div class="player-name" id="survivorName">대기 중...</div>
+                    <div id="survivorName">대기 중...</div>
                 </div>
-                <div class="player-card killer" id="killerCard">
-                    <div class="player-role">😈</div>
+                <div class="player-card" id="killerCard">
+                    <div style="font-size: 2rem;">😈</div>
                     <div>살인마</div>
-                    <div class="player-name" id="killerName">대기 중...</div>
+                    <div id="killerName">대기 중...</div>
                 </div>
             </div>
-            <div class="waiting-status" id="waitingStatus">플레이어를 기다리는 중...</div>
-            <div class="lobby-buttons">
-                <button class="lobby-btn start-btn" id="startGameBtn" style="display: none;">게임 시작</button>
-                <button class="lobby-btn" id="leaveLobbyBtn">로비 나가기</button>
-            </div>
+            <div id="lobbyStatus" class="status">플레이어를 기다리는 중...</div>
+            <button id="startBtn" class="btn" onclick="startGame()" style="display: none;">게임 시작</button>
+            <button class="btn btn-back" onclick="leaveRoom()">나가기</button>
         </div>
-    </div>
 
-    <!-- 게임 화면 -->
-    <div class="screen" id="gameScreen">
-        <div class="game-container" id="gameContainer">
-            <div class="game-ui">
-                <div>생존자 체력: <span id="survivorHealth">100</span>/100</div>
-                <div class="health-bar"><div class="health-fill" id="healthBar" style="width: 100%"></div></div>
-                <div style="margin-top: 10px;">시간: <span id="gameTimer">0</span>/120초</div>
-                <div class="timer-bar"><div class="timer-fill" id="timerBar" style="width: 0%"></div></div>
-                <div style="margin-top: 10px;" id="gameStatus">게임 진행 중...</div>
+        <!-- 게임 화면 -->
+        <div id="gameScreen" class="screen">
+            <div class="game-area" id="gameArea">
+                <div class="game-ui">
+                    <div>생존자 체력: <span id="survivorHealth">100</span></div>
+                    <div>시간: <span id="gameTime">0</span>/120초</div>
+                    <div id="gameStatus">게임 진행 중</div>
+                </div>
+                
+                <div class="game-over" id="gameOver">
+                    <h3 id="gameResult">게임 종료!</h3>
+                    <p id="gameReason">결과</p>
+                    <button class="btn" onclick="backToLobby()">로비로</button>
+                </div>
             </div>
             
-            <div class="controls" id="gameControls">
-                조작법이 여기에 표시됩니다
+            <div class="game-controls">
+                생존자: WASD 이동 | 살인마: 방향키 이동, 스페이스바 공격
             </div>
-
-            <div class="game-over" id="gameOverScreen">
-                <div id="gameResult">게임 종료!</div>
-                <div style="margin: 1rem 0; font-size: 1.2rem;" id="gameResultDetail">결과 상세</div>
-                <button class="main-btn" id="backToLobbyBtn">로비로 돌아가기</button>
-            </div>
+            <button class="btn btn-back" onclick="backToLobby()" style="margin-top: 1rem;">로비로 돌아가기</button>
         </div>
     </div>
 
     <script>
-        class GameManager {
-            constructor() {
-                this.rooms = new Map();
-                this.currentRoom = null;
-                this.playerId = Math.random().toString(36).substr(2, 9);
-                this.playerName = '';
-                this.playerRole = null;
-                this.gameState = null;
-                this.keys = {};
-                this.gameLoop = null;
-                this.timerLoop = null;
-                
-                this.currentScreen = 'main';
-                this.screens = {
-                    main: document.getElementById('mainScreen'),
-                    create: document.getElementById('createScreen'),
-                    roomList: document.getElementById('roomListScreen'),
-                    join: document.getElementById('joinScreen'),
-                    lobby: document.getElementById('lobbyScreen'),
-                    game: document.getElementById('gameScreen')
-                };
+        // 전역 변수
+        let currentScreen = 'main';
+        let rooms = {};
+        let currentRoomId = null;
+        let playerData = {
+            id: 'player_' + Math.random().toString(36).substr(2, 9),
+            name: '',
+            role: null
+        };
+        let selectedRoomId = null;
+        let gameState = null;
+        let gameLoop = null;
+        let keys = {};
 
-                this.init();
+        // 화면 전환 함수들
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId + 'Screen').classList.add('active');
+            currentScreen = screenId;
+            console.log('화면 전환:', screenId);
+        }
+
+        function showMain() { showScreen('main'); }
+        function showCreateRoom() { showScreen('create'); }
+        function showRoomList() { showScreen('roomList'); loadRooms(); }
+        function showJoin() { showScreen('join'); }
+        function showLobby() { showScreen('lobby'); }
+        function showGame() { showScreen('game'); }
+
+        // 방 관리 함수들
+        function createRoom() {
+            const roomName = document.getElementById('roomName').value.trim();
+            const hostName = document.getElementById('hostName').value.trim();
+            
+            console.log('방 만들기 시도:', roomName, hostName);
+            
+            if (!roomName || !hostName) {
+                alert('방 이름과 닉네임을 모두 입력해주세요!');
+                return;
             }
 
-            init() {
-                this.setupEventListeners();
-                this.setupGameInput();
-                this.createSampleRooms();
+            const roomId = 'room_' + Date.now();
+            currentRoomId = roomId;
+            playerData.name = hostName;
+            playerData.role = 'host';
+
+            rooms[roomId] = {
+                id: roomId,
+                name: roomName,
+                host: { id: playerData.id, name: hostName },
+                guest: null,
+                status: 'waiting',
+                gameState: null
+            };
+
+            console.log('방 생성 완료:', rooms[roomId]);
+
+            // 입력 필드 초기화
+            document.getElementById('roomName').value = '';
+            document.getElementById('hostName').value = '';
+
+            showLobby();
+            updateLobby();
+        }
+
+        function loadRooms() {
+            const roomList = document.getElementById('roomList');
+            roomList.innerHTML = '';
+
+            console.log('방 목록 로드:', Object.keys(rooms).length + '개');
+
+            if (Object.keys(rooms).length === 0) {
+                roomList.innerHTML = '<div style="color: #999;">현재 생성된 방이 없습니다.</div>';
+                return;
             }
 
-            createSampleRooms() {
-                // 샘플 방들 생성
-                const sampleRooms = [
-                    { id: 'room1', name: '초보자 방', host: '플레이어1', status: 'waiting', players: 1 },
-                    { id: 'room2', name: '고수만 오세요', host: '프로게이머', status: 'playing', players: 2 },
-                    { id: 'room3', name: '친구끼리 하는 방', host: '친구A', status: 'waiting', players: 1 },
-                    { id: 'room4', name: '빠른 게임', host: '스피드런너', status: 'waiting', players: 1 },
-                    { id: 'room5', name: '재미있게 놀아요', host: '게임러버', status: 'playing', players: 2 }
-                ];
-
-                sampleRooms.forEach(room => {
-                    this.rooms.set(room.id, {
-                        id: room.id,
-                        name: room.name,
-                        host: { name: room.host, id: 'host_' + room.id },
-                        guest: room.players > 1 ? { name: '게스트', id: 'guest_' + room.id } : null,
-                        status: room.status,
-                        gameState: null
-                    });
-                });
-            }
-
-            setupEventListeners() {
-                // 메인 화면
-                document.getElementById('createRoomBtn').addEventListener('click', () => {
-                    this.showScreen('create');
-                });
+            Object.values(rooms).forEach(room => {
+                const roomDiv = document.createElement('div');
+                roomDiv.className = 'room-item' + (room.guest ? ' full' : '');
                 
-                document.getElementById('joinRoomBtn').addEventListener('click', () => {
-                    this.showRoomList();
-                });
-
-                // 방 만들기 화면
-                document.getElementById('confirmCreateBtn').addEventListener('click', () => {
-                    this.createRoom();
-                });
+                const playerCount = room.guest ? '2/2' : '1/2';
+                const status = room.status === 'playing' ? '게임중' : '대기중';
                 
-                document.getElementById('backFromCreateBtn').addEventListener('click', () => {
-                    this.showScreen('main');
-                });
+                roomDiv.innerHTML = `
+                    <div style="font-weight: bold;">${room.name}</div>
+                    <div style="font-size: 0.9em; color: #ccc;">
+                        호스트: ${room.host.name} | ${playerCount} | ${status}
+                    </div>
+                `;
 
-                // 방 목록 화면
-                document.getElementById('refreshRoomsBtn').addEventListener('click', () => {
-                    this.updateRoomList();
-                });
-                
-                document.getElementById('backFromRoomsBtn').addEventListener('click', () => {
-                    this.showScreen('main');
-                });
-
-                // 참가 화면
-                document.getElementById('confirmJoinBtn').addEventListener('click', () => {
-                    this.joinSelectedRoom();
-                });
-                
-                document.getElementById('backFromJoinBtn').addEventListener('click', () => {
-                    this.showRoomList();
-                });
-
-                // 로비 화면
-                document.getElementById('startGameBtn').addEventListener('click', () => {
-                    this.startGame();
-                });
-                
-                document.getElementById('leaveLobbyBtn').addEventListener('click', () => {
-                    this.leaveLobby();
-                });
-
-                // 게임 화면
-                document.getElementById('backToLobbyBtn').addEventListener('click', () => {
-                    this.backToLobby();
-                });
-            }
-
-            showScreen(screenName) {
-                Object.values(this.screens).forEach(screen => {
-                    screen.classList.remove('active');
-                });
-                this.screens[screenName].classList.add('active');
-                this.currentScreen = screenName;
-            }
-
-            createRoom() {
-                const roomName = document.getElementById('roomNameInput').value.trim();
-                const hostName = document.getElementById('hostNameInput').value.trim();
-                
-                if (!roomName || !hostName) {
-                    alert('방 이름과 닉네임을 모두 입력해주세요!');
-                    return;
+                if (!room.guest && room.status === 'waiting') {
+                    roomDiv.onclick = () => selectRoom(room.id, room.name);
                 }
 
-                const roomId = 'room_' + Date.now();
-                this.playerName = hostName;
-                this.playerRole = 'survivor';
-                
-                const newRoom = {
-                    id: roomId,
-                    name: roomName,
-                    host: { name: hostName, id: this.playerId },
-                    guest: null,
-                    status: 'waiting',
-                    gameState: null
-                };
-                
-                this.rooms.set(roomId, newRoom);
-                this.currentRoom = newRoom;
-                
-                this.showLobby();
-                this.updateLobbyUI();
-                
-                // 입력 필드 초기화
-                document.getElementById('roomNameInput').value = '';
-                document.getElementById('hostNameInput').value = '';
+                roomList.appendChild(roomDiv);
+            });
+        }
+
+        function selectRoom(roomId, roomName) {
+            selectedRoomId = roomId;
+            document.getElementById('joinRoomName').textContent = `방 이름: ${roomName}`;
+            showJoin();
+        }
+
+        function joinRoom() {
+            const guestName = document.getElementById('guestName').value.trim();
+            
+            if (!guestName) {
+                alert('닉네임을 입력해주세요!');
+                return;
             }
 
-            showRoomList() {
-                this.showScreen('roomList');
-                this.updateRoomList();
+            const room = rooms[selectedRoomId];
+            if (!room || room.guest) {
+                alert('참가할 수 없는 방입니다!');
+                showRoomList();
+                return;
             }
 
-            updateRoomList() {
-                const roomsGrid = document.getElementById('roomsGrid');
-                roomsGrid.innerHTML = '';
+            currentRoomId = selectedRoomId;
+            playerData.name = guestName;
+            playerData.role = 'guest';
+
+            room.guest = { id: playerData.id, name: guestName };
+
+            console.log('방 참가 완료:', room);
+
+            document.getElementById('guestName').value = '';
+            showLobby();
+            updateLobby();
+        }
+
+        function updateLobby() {
+            const room = rooms[currentRoomId];
+            if (!room) return;
+
+            document.getElementById('lobbyRoomName').textContent = room.name;
+            
+            const survivorCard = document.getElementById('survivorCard');
+            const killerCard = document.getElementById('killerCard');
+            const survivorName = document.getElementById('survivorName');
+            const killerName = document.getElementById('killerName');
+
+            // 카드 초기화
+            survivorCard.classList.remove('occupied');
+            killerCard.classList.remove('occupied');
+
+            // 호스트 (생존자)
+            if (room.host) {
+                survivorCard.classList.add('occupied');
+                survivorName.textContent = room.host.name;
+            }
+
+            // 게스트 (살인마)
+            if (room.guest) {
+                killerCard.classList.add('occupied');
+                killerName.textContent = room.guest.name;
                 
-                if (this.rooms.size === 0) {
-                    roomsGrid.innerHTML = '<div class="no-rooms">현재 생성된 방이 없습니다.</div>';
-                    return;
+                document.getElementById('lobbyStatus').textContent = '게임을 시작할 수 있습니다!';
+                if (playerData.role === 'host') {
+                    document.getElementById('startBtn').style.display = 'block';
                 }
-
-                this.rooms.forEach((room, roomId) => {
-                    const roomCard = document.createElement('div');
-                    roomCard.className = `room-card ${room.status === 'playing' || room.guest ? 'full' : ''}`;
-                    roomCard.dataset.roomId = roomId;
-                    
-                    const canJoin = room.status === 'waiting' && !room.guest;
-                    
-                    roomCard.innerHTML = `
-                        <div class="room-header">
-                            <div class="room-name">${room.name}</div>
-                            <div class="room-status ${room.status}">${room.status === 'waiting' ? '대기중' : '게임중'}</div>
-                        </div>
-                        <div class="room-players">
-                            <div class="player-info">
-                                <span class="player-role-icon">🏃‍♂️</span>
-                                <span>${room.host.name}</span>
-                            </div>
-                            <div class="player-info ${!room.guest ? 'empty-slot' : ''}">
-                                <span class="player-role-icon">😈</span>
-                                <span>${room.guest ? room.guest.name : '빈 자리'}</span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    if (canJoin) {
-                        roomCard.addEventListener('click', () => {
-                            this.selectedRoomId = roomId;
-                            this.showScreen('join');
-                        });
-                    }
-                    
-                    roomsGrid.appendChild(roomCard);
-                });
-            }
-
-            joinSelectedRoom() {
-                const playerName = document.getElementById('joinNameInput').value.trim();
-                if (!playerName) {
-                    alert('닉네임을 입력해주세요!');
-                    return;
-                }
-
-                const room = this.rooms.get(this.selectedRoomId);
-                if (!room || room.guest || room.status === 'playing') {
-                    alert('이미 가득 찬 방이거나 게임이 진행 중입니다!');
-                    this.showRoomList();
-                    return;
-                }
-
-                this.playerName = playerName;
-                this.playerRole = 'killer';
-                this.currentRoom = room;
-                
-                // 방에 게스트로 참가
-                room.guest = {
-                    name: playerName,
-                    id: this.playerId
-                };
-                
-                this.showLobby();
-                this.updateLobbyUI();
-                
-                // 입력 필드 초기화
-                document.getElementById('joinNameInput').value = '';
-            }
-
-            showLobby() {
-                this.showScreen('lobby');
-                document.getElementById('roomTitle').textContent = this.currentRoom.name;
-            }
-
-            updateLobbyUI() {
-                const survivorCard = document.getElementById('survivorCard');
-                const killerCard = document.getElementById('killerCard');
-                const survivorName = document.getElementById('survivorName');
-                const killerName = document.getElementById('killerName');
-
-                // 카드 초기화
-                survivorCard.classList.remove('occupied');
-                killerCard.classList.remove('occupied');
-                
-                // 호스트 (항상 생존자)
-                if (this.currentRoom.host) {
-                    survivorCard.classList.add('occupied');
-                    survivorName.textContent = this.currentRoom.host.name;
-                }
-                
-                // 게스트 (항상 살인마)
-                if (this.currentRoom.guest) {
-                    killerCard.classList.add('occupied');
-                    killerName.textContent = this.currentRoom.guest.name;
-                    
-                    document.getElementById('waitingStatus').textContent = '게임을 시작할 수 있습니다!';
-                    if (this.playerRole === 'survivor') {
-                        document.getElementById('startGameBtn').style.display = 'block';
-                    }
-                } else {
-                    killerName.textContent = '대기 중...';
-                    document.getElementById('waitingStatus').textContent = '플레이어를 기다리는 중...';
-                    document.getElementById('startGameBtn').style.display = 'none';
-                }
-            }
-
-            startGame() {
-                if (this.playerRole !== 'survivor') return; // 호스트만 게임 시작 가능
-                
-                this.currentRoom.status = 'playing';
-                this.initGame();
-            }
-
-            initGame() {
-                this.showScreen('game');
-                
-                // 게임 상태 초기화
-                this.gameState = {
-                    survivor: {
-                        x: 100, y: 100,
-                        health: 100, maxHealth: 100,
-                        speed: 4
-                    },
-                    killer: {
-                        x: 750, y: 450,
-                        speed: 3.5,
-                        attackCooldown: 0
-                    },
-                    gameTime: 0,
-                    maxTime: 120,
-                    running: true
-                };
-
-                // 플레이어 스프라이트 생성
-                this.createPlayerSprites();
-                this.createObstacles();
-                this.updateGameControls();
-                
-                // 게임 루프 시작
-                this.startGameLoop();
-            }
-
-            createPlayerSprites() {
-                const container = document.getElementById('gameContainer');
-                
-                // 기존 플레이어 제거
-                const existingPlayers = container.querySelectorAll('.player');
-                existingPlayers.forEach(p => p.remove());
-                
-                // 생존자
-                const survivor = document.createElement('div');
-                survivor.className = 'player survivor-player';
-                survivor.id = 'survivorPlayer';
-                survivor.textContent = '🏃‍♂️';
-                survivor.style.left = this.gameState.survivor.x + 'px';
-                survivor.style.top = this.gameState.survivor.y + 'px';
-                container.appendChild(survivor);
-                
-                // 살인마
-                const killer = document.createElement('div');
-                killer.className = 'player killer-player';
-                killer.id = 'killerPlayer';
-                killer.textContent = '😈';
-                killer.style.left = this.gameState.killer.x + 'px';
-                killer.style.top = this.gameState.killer.y + 'px';
-                container.appendChild(killer);
-            }
-
-            createObstacles() {
-                const container = document.getElementById('gameContainer');
-                
-                // 기존 장애물 제거
-                const existingObstacles = container.querySelectorAll('.obstacle');
-                existingObstacles.forEach(o => o.remove());
-                
-                const obstacles = [
-                    {x: 200, y: 150, width: 80, height: 60},
-                    {x: 400, y: 200, width: 60, height: 100},
-                    {x: 600, y: 300, width: 100, height: 50},
-                    {x: 300, y: 400, width: 70, height: 80},
-                    {x: 500, y: 100, width: 90, height: 40}
-                ];
-
-                obstacles.forEach(obs => {
-                    const obstacle = document.createElement('div');
-                    obstacle.className = 'obstacle';
-                    obstacle.style.left = obs.x + 'px';
-                    obstacle.style.top = obs.y + 'px';
-                    obstacle.style.width = obs.width + 'px';
-                    obstacle.style.height = obs.height + 'px';
-                    container.appendChild(obstacle);
-                });
-            }
-
-            updateGameControls() {
-                const controlsText = this.playerRole === 'survivor' ? 
-                    '생존자 조작: WASD 이동 | 목표: 120초 동안 생존하세요!' :
-                    '살인마 조작: 방향키 이동, 스페이스바 공격 | 목표: 생존자를 잡으세요!';
-                document.getElementById('gameControls').textContent = controlsText;
-            }
-
-            setupGameInput() {
-                document.addEventListener('keydown', (e) => {
-                    this.keys[e.key.toLowerCase()] = true;
-                    if (e.code === 'Space' && this.playerRole === 'killer') {
-                        e.preventDefault();
-                        this.handleAttack();
-                    }
-                });
-
-                document.addEventListener('keyup', (e) => {
-                    this.keys[e.key.toLowerCase()] = false;
-                });
-            }
-
-            startGameLoop() {
-                this.gameLoop = setInterval(() => this.updateGame(), 1000/60);
-                this.timerLoop = setInterval(() => this.updateTimer(), 1000);
-            }
-
-            updateGame() {
-                if (!this.gameState || !this.gameState.running) return;
-                
-                this.updatePlayerMovement();
-                this.updateGameEffects();
-                this.renderGame();
-            }
-
-            updatePlayerMovement() {
-                const player = this.playerRole === 'survivor' ? this.gameState.survivor : this.gameState.killer;
-                const speed = player.speed;
-                
-                let newX = player.x;
-                let newY = player.y;
-
-                if (this.playerRole === 'survivor') {
-                    if (this.keys['w']) newY -= speed;
-                    if (this.keys['s']) newY += speed;
-                    if (this.keys['a']) newX -= speed;
-                    if (this.keys['d']) newX += speed;
-                } else {
-                    if (this.keys['arrowup']) newY -= speed;
-                    if (this.keys['arrowdown']) newY += speed;
-                    if (this.keys['arrowleft']) newX -= speed;
-                    if (this.keys['arrowright']) newX += speed;
-                }
-
-                // 경계 체크
-                if (newX >= 0 && newX <= 850 && newY >= 0 && newY <= 550) {
-                    player.x = newX;
-                    player.y = newY;
-                }
-            }
-
-            updateGameEffects() {
-                if (this.gameState.killer.attackCooldown > 0) {
-                    this.gameState.killer.attackCooldown--;
-                }
-            }
-
-            handleAttack() {
-                if (this.playerRole !== 'killer' || this.gameState.killer.attackCooldown > 0) return;
-                
-                const killer = this.gameState.killer;
-                const survivor = this.gameState.survivor;
-                const distance = Math.sqrt(
-                    Math.pow(killer.x - survivor.x, 2) + Math.pow(killer.y - survivor.y, 2)
-                );
-                
-                if (distance <= 80) {
-                    survivor.health -= 25;
-                    killer.attackCooldown = 60; // 1초 쿨다운
-                    
-                    console.log('공격 성공!', survivor.health);
-                    
-                    if (survivor.health <= 0) {
-                        this.endGame('killer', '살인마가 생존자를 처치했습니다!');
-                    }
-                }
-            }
-
-            renderGame() {
-                const survivorEl = document.getElementById('survivorPlayer');
-                const killerEl = document.getElementById('killerPlayer');
-                
-                if (survivorEl) {
-                    survivorEl.style.left = this.gameState.survivor.x + 'px';
-                    survivorEl.style.top = this.gameState.survivor.y + 'px';
-                }
-                
-                if (killerEl) {
-                    killerEl.style.left = this.gameState.killer.x + 'px';
-                    killerEl.style.top = this.gameState.killer.y + 'px';
-                }
-                
-                // UI 업데이트
-                this.updateGameUI();
-            }
-
-            updateGameUI() {
-                const survivor = this.gameState.survivor;
-                
-                document.getElementById('survivorHealth').textContent = Math.max(0, Math.round(survivor.health));
-                const healthPercent = Math.max(0, survivor.health / survivor.maxHealth * 100);
-                document.getElementById('healthBar').style.width = healthPercent + '%';
-            }
-
-            updateTimer() {
-                if (!this.gameState || !this.gameState.running) return;
-                
-                this.gameState.gameTime++;
-                document.getElementById('gameTimer').textContent = this.gameState.gameTime;
-                
-                const timerPercent = (this.gameState.gameTime / this.gameState.maxTime) * 100;
-                document.getElementById('timerBar').style.width = timerPercent + '%';
-                
-                if (this.gameState.gameTime >= this.gameState.maxTime) {
-                    this.endGame('survivor', '120초 동안 생존에 성공했습니다!');
-                }
-            }
-
-            endGame(winner, reason) {
-                this.gameState.running = false;
-                this.currentRoom.status = 'waiting';
-                
-                if (this.gameLoop) {
-                    clearInterval(this.gameLoop);
-                    this.gameLoop = null;
-                }
-                if (this.timerLoop) {
-                    clearInterval(this.timerLoop);
-                    this.timerLoop = null;
-                }
-                
-                const gameOverScreen = document.getElementById('gameOverScreen');
-                const gameResult = document.getElementById('gameResult');
-                const gameResultDetail = document.getElementById('gameResultDetail');
-                
-                if (winner === 'survivor') {
-                    gameResult.textContent = '🎉 생존자 승리!';
-                    gameResult.style.color = '#4ecdc4';
-                } else {
-                    gameResult.textContent = '💀 살인마 승리!';
-                    gameResult.style.color = '#ff6b6b';
-                }
-                
-                gameResultDetail.textContent = reason;
-                gameOverScreen.classList.add('show');
-            }
-
-            backToLobby() {
-                // 게임 정리
-                if (this.gameLoop) {
-                    clearInterval(this.gameLoop);
-                    this.gameLoop = null;
-                }
-                if (this.timerLoop) {
-                    clearInterval(this.timerLoop);
-                    this.timerLoop = null;
-                }
-                
-                // 화면 정리
-                document.getElementById('gameOverScreen').classList.remove('show');
-                const container = document.getElementById('gameContainer');
-                container.querySelectorAll('.player, .obstacle').forEach(el => el.remove());
-                
-                this.showLobby();
-                this.updateLobbyUI();
-            }
-
-            leaveLobby() {
-                if (this.currentRoom) {
-                    // 자신이 호스트면 방 삭제
-                    if (this.playerRole === 'survivor') {
-                        this.rooms.delete(this.currentRoom.id);
-                    } else {
-                        // 게스트면 방에서 나가기
-                        this.currentRoom.guest = null;
-                        this.currentRoom.status = 'waiting';
-                    }
-                }
-                
-                this.currentRoom = null;
-                this.playerRole = null;
-                this.resetLobbyUI();
-                this.showScreen('main');
-            }
-
-            resetLobbyUI() {
-                const survivorCard = document.getElementById('survivorCard');
-                const killerCard = document.getElementById('killerCard');
-                const survivorName = document.getElementById('survivorName');
-                const killerName = document.getElementById('killerName');
-                
-                survivorCard.classList.remove('occupied');
-                killerCard.classList.remove('occupied');
-                survivorName.textContent = '대기 중...';
+            } else {
                 killerName.textContent = '대기 중...';
-                
-                document.getElementById('startGameBtn').style.display = 'none';
-                document.getElementById('waitingStatus').textContent = '플레이어를 기다리는 중...';
+                document.getElementById('lobbyStatus').textContent = '플레이어를 기다리는 중...';
+                document.getElementById('startBtn').style.display = 'none';
             }
         }
 
-        // 게임 시작
-        window.addEventListener('load', () => {
-            new GameManager();
+        function leaveRoom() {
+            const room = rooms[currentRoomId];
+            if (room) {
+                if (playerData.role === 'host') {
+                    // 호스트가 나가면 방 삭제
+                    delete rooms[currentRoomId];
+                } else {
+                    // 게스트가 나가면 게스트만 제거
+                    room.guest = null;
+                    room.status = 'waiting';
+                }
+            }
+
+            currentRoomId = null;
+            playerData.role = null;
+            showMain();
+        }
+
+        // 게임 관련 함수들
+        function startGame() {
+            if (playerData.role !== 'host') return;
+
+            const room = rooms[currentRoomId];
+            if (!room || !room.guest) return;
+
+            room.status = 'playing';
+            room.gameState = {
+                survivor: { x: 50, y: 50, health: 100 },
+                killer: { x: 700, y: 500, attackCooldown: 0 },
+                time: 0,
+                running: true
+            };
+
+            initGame();
+        }
+
+        function initGame() {
+            gameState = rooms[currentRoomId].gameState;
+            showGame();
+            createGameObjects();
+            startGameLoop();
+        }
+
+        function createGameObjects() {
+            const gameArea = document.getElementById('gameArea');
+            
+            // 기존 플레이어 제거
+            gameArea.querySelectorAll('.player, .obstacle').forEach(el => el.remove());
+
+            // 생존자
+            const survivor = document.createElement('div');
+            survivor.className = 'player survivor';
+            survivor.id = 'survivorPlayer';
+            survivor.textContent = '🏃‍♂️';
+            survivor.style.left = gameState.survivor.x + 'px';
+            survivor.style.top = gameState.survivor.y + 'px';
+            gameArea.appendChild(survivor);
+
+            // 살인마
+            const killer = document.createElement('div');
+            killer.className = 'player killer';
+            killer.id = 'killerPlayer';
+            killer.textContent = '😈';
+            killer.style.left = gameState.killer.x + 'px';
+            killer.style.top = gameState.killer.y + 'px';
+            gameArea.appendChild(killer);
+
+            // 장애물들
+            const obstacles = [
+                {x: 150, y: 100, w: 80, h: 60},
+                {x: 350, y: 200, w: 60, h: 100},
+                {x: 550, y: 300, w: 100, h: 50},
+                {x: 250, y: 400, w: 70, h: 80}
+            ];
+
+            obstacles.forEach(obs => {
+                const obstacle = document.createElement('div');
+                obstacle.className = 'obstacle';
+                obstacle.style.left = obs.x + 'px';
+                obstacle.style.top = obs.y + 'px';
+                obstacle.style.width = obs.w + 'px';
+                obstacle.style.height = obs.h + 'px';
+                gameArea.appendChild(obstacle);
+            });
+        }
+
+        function startGameLoop() {
+            gameLoop = setInterval(() => {
+                if (gameState && gameState.running) {
+                    updateGame();
+                    renderGame();
+                }
+            }, 1000/60);
+
+            // 타이머 (호스트만)
+            if (playerData.role === 'host') {
+                const timer = setInterval(() => {
+                    if (!gameState || !gameState.running) {
+                        clearInterval(timer);
+                        return;
+                    }
+                    
+                    gameState.time++;
+                    if (gameState.time >= 120) {
+                        endGame('survivor', '생존자가 120초를 버텨냈습니다!');
+                        clearInterval(timer);
+                    }
+                }, 1000);
+            }
+        }
+
+        function updateGame() {
+            // 플레이어 움직임
+            const speed = 4;
+            const myPlayer = playerData.role === 'host' ? gameState.survivor : gameState.killer;
+
+            let newX = myPlayer.x;
+            let newY = myPlayer.y;
+
+            if (playerData.role === 'host') {
+                // 생존자 조작 (WASD)
+                if (keys['w'] || keys['W']) newY -= speed;
+                if (keys['s'] || keys['S']) newY += speed;
+                if (keys['a'] || keys['A']) newX -= speed;
+                if (keys['d'] || keys['D']) newX += speed;
+            } else {
+                // 살인마 조작 (방향키)
+                if (keys['ArrowUp']) newY -= speed;
+                if (keys['ArrowDown']) newY += speed;
+                if (keys['ArrowLeft']) newX -= speed;
+                if (keys['ArrowRight']) newX += speed;
+            }
+
+            // 경계 체크
+            if (newX >= 0 && newX <= 760 && newY >= 0 && newY <= 560) {
+                myPlayer.x = newX;
+                myPlayer.y = newY;
+            }
+
+            // 공격 쿨다운
+            if (gameState.killer.attackCooldown > 0) {
+                gameState.killer.attackCooldown--;
+            }
+        }
+
+        function renderGame() {
+            const survivor = document.getElementById('survivorPlayer');
+            const killer = document.getElementById('killerPlayer');
+
+            if (survivor) {
+                survivor.style.left = gameState.survivor.x + 'px';
+                survivor.style.top = gameState.survivor.y + 'px';
+            }
+
+            if (killer) {
+                killer.style.left = gameState.killer.x + 'px';
+                killer.style.top = gameState.killer.y + 'px';
+            }
+
+            // UI 업데이트
+            document.getElementById('survivorHealth').textContent = gameState.survivor.health;
+            document.getElementById('gameTime').textContent = gameState.time;
+        }
+
+        function attack() {
+            if (playerData.role !== 'guest' || gameState.killer.attackCooldown > 0) return;
+
+            const dx = gameState.killer.x - gameState.survivor.x;
+            const dy = gameState.killer.y - gameState.survivor.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+
+            if (distance <= 60) {
+                gameState.survivor.health -= 25;
+                gameState.killer.attackCooldown = 60;
+
+                if (gameState.survivor.health <= 0) {
+                    endGame('killer', '살인마가 생존자를 잡았습니다!');
+                }
+            }
+        }
+
+        function endGame(winner, reason) {
+            gameState.running = false;
+            rooms[currentRoomId].status = 'waiting';
+
+            if (gameLoop) {
+                clearInterval(gameLoop);
+                gameLoop = null;
+            }
+
+            const gameOver = document.getElementById('gameOver');
+            const gameResult = document.getElementById('gameResult');
+            const gameReason = document.getElementById('gameReason');
+
+            if (winner === 'survivor') {
+                gameResult.textContent = '🏃‍♂️ 생존자 승리!';
+                gameResult.style.color = '#4ecdc4';
+            } else {
+                gameResult.textContent = '😈 살인마 승리!';
+                gameResult.style.color = '#ff6b6b';
+            }
+
+            gameReason.textContent = reason;
+            gameOver.classList.add('show');
+        }
+
+        function backToLobby() {
+            if (gameLoop) {
+                clearInterval(gameLoop);
+                gameLoop = null;
+            }
+
+            document.getElementById('gameOver').classList.remove('show');
+            showLobby();
+            updateLobby();
+        }
+
+        // 키보드 이벤트
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.code === 'Space' && currentScreen === 'game') {
+                e.preventDefault();
+                attack();
+            }
         });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // 초기화
+        console.log('게임 초기화 완료');
+        console.log('플레이어 ID:', playerData.id);
     </script>
 </body>
 </html>

@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>생존자 vs 살인마 게임 (온라인)</title>
+    <title>생존자 vs 살인마 (로컬 와이파이)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.0/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-database-compat.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -150,53 +148,27 @@
             box-shadow: 0 0 20px rgba(78, 205, 196, 0.3);
         }
 
-        .room-list {
-            max-height: 350px;
-            overflow-y: auto;
-            margin: 1.5rem 0;
-            scrollbar-width: thin;
-            scrollbar-color: #4ecdc4 transparent;
-        }
-
-        .room-item {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
+        .connection-info {
+            background: rgba(78, 205, 196, 0.1);
+            border: 1px solid rgba(78, 205, 196, 0.3);
             border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            transition: all 0.4s ease;
-            position: relative;
-            overflow: hidden;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
         }
 
-        .room-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(78, 205, 196, 0.1), transparent);
-            transition: left 0.3s;
-        }
-
-        .room-item:hover::before {
-            left: 100%;
-        }
-
-        .room-item:hover {
-            background: rgba(78, 205, 196, 0.15);
-            border-color: #4ecdc4;
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(78, 205, 196, 0.2);
-        }
-
-        .room-item.full {
-            opacity: 0.4;
-            cursor: not-allowed;
-            background: rgba(231, 76, 60, 0.1);
-            border-color: rgba(231, 76, 60, 0.3);
+        .room-code {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid #4ecdc4;
+            border-radius: 15px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #4ecdc4;
+            text-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
         }
 
         .players-grid {
@@ -373,6 +345,23 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .copy-btn {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            min-width: auto;
+            margin: 0.2rem;
+        }
+
+        .network-info {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+        }
     </style>
 </head>
 <body>
@@ -380,10 +369,19 @@
         <!-- 메인 화면 -->
         <div id="mainScreen" class="screen active">
             <h1 class="title">생존자 vs 살인마</h1>
+            <div class="subtitle" style="margin-bottom: 2rem; color: rgba(255,255,255,0.7);">
+                📶 로컬 와이파이 버전
+            </div>
             <button class="btn btn-create" onclick="showCreateRoom()">🏠 방 만들기</button>
-            <button class="btn" onclick="showRoomList()">📋 방 목록</button>
+            <button class="btn" onclick="showJoinRoom()">🚪 방 참가하기</button>
             <div class="connection-status" id="connectionStatus">
                 <span class="loading"></span> 연결 중...
+            </div>
+            
+            <div class="network-info">
+                <div><strong>📶 로컬 와이파이 게임</strong></div>
+                <div>• 같은 와이파이에 연결된 사람끼리만 플레이 가능</div>
+                <div>• 방 코드를 공유해서 친구를 초대하세요</div>
             </div>
         </div>
 
@@ -396,30 +394,35 @@
             <button class="btn btn-back" onclick="showMain()">← 돌아가기</button>
         </div>
 
-        <!-- 방 목록 화면 -->
-        <div id="roomListScreen" class="screen">
-            <h2>📋 방 목록</h2>
-            <button class="btn" onclick="loadRooms()" style="margin-bottom: 1rem;">🔄 새로고침</button>
-            <div id="roomList" class="room-list">
-                <div style="color: #999;">
-                    <span class="loading"></span> 방 목록을 불러오는 중...
-                </div>
-            </div>
-            <button class="btn btn-back" onclick="showMain()">← 돌아가기</button>
-        </div>
-
         <!-- 방 참가 화면 -->
-        <div id="joinScreen" class="screen">
-            <h2>🚪 방 참가</h2>
-            <p id="joinRoomName" style="color: #4ecdc4; margin-bottom: 1.5rem; font-size: 1.2rem;"></p>
+        <div id="joinRoomScreen" class="screen">
+            <h2>🚪 방 참가하기</h2>
+            <input type="text" id="roomCodeInput" class="input-field" placeholder="방 코드를 입력하세요" maxlength="50" style="text-transform: uppercase;">
             <input type="text" id="guestName" class="input-field" placeholder="닉네임을 입력하세요" maxlength="15">
             <button class="btn" onclick="joinRoom()">참가하기</button>
-            <button class="btn btn-back" onclick="showRoomList()">← 방 목록으로</button>
+            <button class="btn btn-back" onclick="showMain()">← 돌아가기</button>
+            
+            <div class="connection-info">
+                <div><strong>💡 방 코드 입력 방법</strong></div>
+                <div>방장이 공유해준 방 코드를 정확히 입력하세요</div>
+            </div>
         </div>
 
         <!-- 로비 화면 -->
         <div id="lobbyScreen" class="screen">
             <h2 id="lobbyRoomName">🎮 게임 로비</h2>
+            
+            <div id="hostLobby" style="display: none;">
+                <div class="room-code" id="displayRoomCode">방 코드</div>
+                <button class="btn copy-btn" onclick="copyRoomCode()">📋 코드 복사</button>
+                <div class="connection-info">
+                    <div><strong>🔗 친구 초대 방법</strong></div>
+                    <div>1. 위의 방 코드를 친구에게 공유</div>
+                    <div>2. 친구가 "방 참가하기"에서 코드 입력</div>
+                    <div>3. 같은 와이파이에 연결되어 있어야 함</div>
+                </div>
+            </div>
+            
             <div class="players-grid">
                 <div class="player-card" id="survivorCard">
                     <div style="font-size: 2.5rem;">🏃‍♂️</div>
@@ -432,6 +435,7 @@
                     <div id="killerName">대기 중...</div>
                 </div>
             </div>
+            
             <div id="lobbyStatus" class="status">플레이어를 기다리는 중...</div>
             <button id="startBtn" class="btn" onclick="startGame()" style="display: none;">🚀 게임 시작</button>
             <button class="btn btn-back" onclick="leaveRoom()">← 나가기</button>
@@ -461,24 +465,6 @@
     </div>
 
     <script>
-        // Firebase 설정
-        const firebaseConfig = {
-            apiKey: "AIzaSyDummy-Key-For-Demo-Purpose",
-            authDomain: "demo-project.firebaseapp.com",
-            databaseURL: "https://demo-project-default-rtdb.firebaseio.com/",
-            projectId: "demo-project"
-        };
-
-        // Firebase 초기화 (실제로는 동작하지 않지만 코드 구조를 보여줌)
-        let database;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            database = firebase.database();
-        } catch (e) {
-            console.log('Firebase 초기화 실패 - 데모 모드로 실행');
-            // 실제 환경에서는 위의 Firebase 설정을 본인의 것으로 교체하세요
-        }
-
         // 전역 변수
         let peer;
         let conn;
@@ -489,8 +475,14 @@
         let gameLoop = null;
         let keys = {};
         let myRole = null;
-        let selectedRoomId = null;
-        let currentRoomId = null;
+        let roomCode = null;
+
+        // 로컬 서버 설정 (PeerJS 서버를 로컬에서 실행할 때 사용)
+        const LOCAL_SERVER_CONFIG = {
+            host: 'localhost',  // 로컬 서버 주소
+            port: 9000,         // 포트 번호
+            path: '/'
+        };
 
         // 화면 전환 함수들
         function showScreen(screenId) {
@@ -508,14 +500,9 @@
             document.getElementById('roomName').focus();
         }
         
-        function showRoomList() { 
-            showScreen('roomList'); 
-            loadRooms(); 
-        }
-        
-        function showJoin() { 
-            showScreen('join'); 
-            document.getElementById('guestName').focus();
+        function showJoinRoom() { 
+            showScreen('joinRoom'); 
+            document.getElementById('roomCodeInput').focus();
         }
         
         function showLobby() { 
@@ -537,13 +524,7 @@
             myRole = null;
             playerName = '';
             opponentName = '';
-            selectedRoomId = null;
-            if (currentRoomId && database) {
-                try {
-                    database.ref('rooms/' + currentRoomId).remove();
-                } catch (e) {}
-            }
-            currentRoomId = null;
+            roomCode = null;
             if (conn) {
                 conn.close();
                 conn = null;
@@ -561,40 +542,83 @@
             }
         }
 
-        // PeerJS 초기화
+        // PeerJS 초기화 (로컬 서버 우선, 실패시 공용 서버)
         function initPeer() {
             try {
-                peer = new Peer();
+                // 먼저 로컬 서버 시도
+                peer = new Peer(undefined, LOCAL_SERVER_CONFIG);
                 
                 peer.on('open', function(id) {
-                    console.log('PeerJS 연결됨. ID:', id);
-                    updateConnectionStatus('준비 완료', true);
+                    console.log('로컬 PeerJS 서버 연결 성공. ID:', id);
+                    updateConnectionStatus('로컬 서버 연결됨', true);
                 });
 
-                peer.on('connection', function(connection) {
-                    console.log('새로운 연결:', connection.peer);
-                    conn = connection;
-                    setupConnection();
+                peer.on('error', function(err) {
+                    console.log('로컬 서버 연결 실패, 공용 서버로 전환:', err.message);
+                    // 로컬 서버 실패시 공용 서버로 전환
+                    initPeerWithPublicServer();
+                });
+
+            } catch (e) {
+                console.error('로컬 서버 초기화 실패:', e);
+                initPeerWithPublicServer();
+            }
+        }
+
+        function initPeerWithPublicServer() {
+            try {
+                peer = new Peer(); // 공용 서버 사용
+                
+                peer.on('open', function(id) {
+                    console.log('공용 PeerJS 서버 연결 성공. ID:', id);
+                    updateConnectionStatus('공용 서버 연결됨', true);
                 });
 
                 peer.on('error', function(err) {
                     console.error('PeerJS 에러:', err);
                     updateConnectionStatus('연결 실패', false);
-                    setTimeout(() => {
-                        updateConnectionStatus('재연결 중...', false);
-                        initPeer();
-                    }, 3000);
-                });
-
-                peer.on('close', function() {
-                    console.log('PeerJS 연결 종료');
-                    updateConnectionStatus('연결 끊어짐', false);
+                    
+                    if (err.type === 'network' || err.type === 'server-error') {
+                        setTimeout(() => {
+                            updateConnectionStatus('재연결 중...', false);
+                            initPeerWithPublicServer();
+                        }, 3000);
+                    }
                 });
 
             } catch (e) {
-                console.error('Peer 초기화 실패:', e);
+                console.error('공용 서버 초기화 실패:', e);
                 updateConnectionStatus('초기화 실패', false);
             }
+
+            setupPeerEvents();
+        }
+
+        function setupPeerEvents() {
+            if (!peer) return;
+
+            peer.on('connection', function(connection) {
+                console.log('새로운 연결:', connection.peer);
+                conn = connection;
+                setupConnection();
+            });
+
+            peer.on('close', function() {
+                console.log('PeerJS 연결 종료');
+                updateConnectionStatus('연결 끊어짐', false);
+            });
+
+            peer.on('disconnected', function() {
+                console.log('PeerJS 연결 끊어짐');
+                updateConnectionStatus('연결 끊어짐', false);
+                
+                // 재연결 시도
+                setTimeout(() => {
+                    if (peer && !peer.destroyed) {
+                        peer.reconnect();
+                    }
+                }, 1000);
+            });
         }
 
         // 연결 설정
@@ -639,20 +663,21 @@
                     opponentName = data.name;
                     updateLobby();
                     if (isHost) {
-                        sendMessage({ type: 'hostInfo', name: playerName });
-                        updateRoomInDatabase(currentRoomId, { guest: opponentName, status: 'full' });
+                        sendMessage({ type: 'hostInfo', name: playerName, roomName: document.getElementById('lobbyRoomName').textContent });
                     }
                     break;
                     
                 case 'hostInfo':
                     opponentName = data.name;
+                    if (data.roomName) {
+                        document.getElementById('lobbyRoomName').textContent = data.roomName;
+                    }
                     updateLobby();
                     break;
                     
                 case 'gameStart':
                     gameState = data.gameState;
                     myRole = 'killer';
-                    updateRoomInDatabase(currentRoomId, { status: 'playing' });
                     initGame();
                     break;
                     
@@ -674,39 +699,6 @@
             }
         }
 
-        // Firebase 데이터베이스 함수들 (데모용)
-        function updateRoomInDatabase(roomId, updates) {
-            // 실제 환경에서는 Firebase를 사용
-            if (database) {
-                try {
-                    database.ref('rooms/' + roomId).update(updates);
-                } catch (e) {
-                    console.log('Firebase 업데이트 실패');
-                }
-            } else {
-                // 로컬 저장소 폴백
-                const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                if (rooms[roomId]) {
-                    Object.assign(rooms[roomId], updates);
-                    localStorage.setItem('onlineRooms', JSON.stringify(rooms));
-                }
-            }
-        }
-
-        function removeRoomFromDatabase(roomId) {
-            if (database) {
-                try {
-                    database.ref('rooms/' + roomId).remove();
-                } catch (e) {
-                    console.log('Firebase 삭제 실패');
-                }
-            } else {
-                const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                delete rooms[roomId];
-                localStorage.setItem('onlineRooms', JSON.stringify(rooms));
-            }
-        }
-
         // 방 만들기
         function createRoom() {
             const roomName = document.getElementById('roomName').value.trim();
@@ -722,33 +714,7 @@
                 return;
             }
 
-            const roomInfo = {
-                id: peer.id,
-                name: roomName,
-                host: hostName,
-                guest: null,
-                status: 'waiting',
-                created: Date.now()
-            };
-
-            currentRoomId = peer.id;
-            
-            // Firebase 또는 로컬 저장소에 저장
-            if (database) {
-                try {
-                    database.ref('rooms/' + peer.id).set(roomInfo);
-                } catch (e) {
-                    console.log('Firebase 저장 실패, 로컬 저장소 사용');
-                    const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                    rooms[peer.id] = roomInfo;
-                    localStorage.setItem('onlineRooms', JSON.stringify(rooms));
-                }
-            } else {
-                const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                rooms[peer.id] = roomInfo;
-                localStorage.setItem('onlineRooms', JSON.stringify(rooms));
-            }
-            
+            roomCode = peer.id;
             playerName = hostName;
             isHost = true;
             myRole = 'survivor';
@@ -756,121 +722,50 @@
             document.getElementById('roomName').value = '';
             document.getElementById('hostName').value = '';
             document.getElementById('lobbyRoomName').textContent = '🎮 ' + roomName;
+            document.getElementById('displayRoomCode').textContent = roomCode;
+            document.getElementById('hostLobby').style.display = 'block';
             
             showLobby();
             updateLobby();
         }
 
-        // 방 목록 로드
-        function loadRooms() {
-            const roomList = document.getElementById('roomList');
-            roomList.innerHTML = '<div style="color: #999;"><span class="loading"></span> 방 목록을 불러오는 중...</div>';
-
-            if (database) {
-                try {
-                    database.ref('rooms').once('value').then((snapshot) => {
-                        const rooms = snapshot.val() || {};
-                        displayRooms(rooms);
-                    }).catch(() => {
-                        // Firebase 실패시 로컬 저장소 사용
-                        const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                        displayRooms(rooms);
-                    });
-                } catch (e) {
-                    const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                    displayRooms(rooms);
-                }
+        // 방 코드 복사
+        function copyRoomCode() {
+            if (!roomCode) return;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(roomCode).then(() => {
+                    alert('방 코드가 복사되었습니다!\n친구에게 공유하세요: ' + roomCode);
+                }).catch(() => {
+                    fallbackCopyRoomCode();
+                });
             } else {
-                // 로컬 저장소만 사용
-                const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                displayRooms(rooms);
+                fallbackCopyRoomCode();
             }
         }
 
-        function displayRooms(rooms) {
-            const roomList = document.getElementById('roomList');
-            roomList.innerHTML = '';
-
-            // 오래된 방들 정리 (5분 이상)
-            const now = Date.now();
-            Object.keys(rooms).forEach(roomId => {
-                if (now - rooms[roomId].created > 300000) {
-                    delete rooms[roomId];
-                }
-            });
-
-            console.log('방 목록 로드:', Object.keys(rooms).length + '개');
-
-            if (Object.keys(rooms).length === 0) {
-                roomList.innerHTML = '<div style="color: #999;">현재 생성된 방이 없습니다.<br/>새로운 방을 만들어보세요! 🏠</div>';
-                return;
-            }
-
-            // 방 목록을 최신순으로 정렬
-            const sortedRooms = Object.values(rooms).sort((a, b) => b.created - a.created);
-
-            sortedRooms.forEach(room => {
-                const roomDiv = document.createElement('div');
-                const isFull = room.guest || room.status === 'playing';
-                const isPlaying = room.status === 'playing';
-                
-                roomDiv.className = 'room-item' + (isFull ? ' full' : '');
-                
-                const playerCount = room.guest ? '2/2' : '1/2';
-                const status = isPlaying ? '🎮 게임중' : isFull ? '🔒 가득참' : '⏳ 대기중';
-                const timeAgo = getTimeAgo(room.created);
-                
-                roomDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 0.3rem;">
-                                🏠 ${room.name}
-                            </div>
-                            <div style="font-size: 0.9em; color: #ccc;">
-                                👑 ${room.host} | 👥 ${playerCount} | ${status}
-                            </div>
-                            <div style="font-size: 0.8em; color: #999; margin-top: 0.3rem;">
-                                📅 ${timeAgo}
-                            </div>
-                        </div>
-                        ${!isFull ? '<div style="font-size: 1.5em;">➡️</div>' : ''}
-                    </div>
-                `;
-
-                if (!isFull && room.status === 'waiting') {
-                    roomDiv.onclick = () => selectRoom(room.id, room.name);
-                }
-
-                roomList.appendChild(roomDiv);
-            });
-        }
-
-        function getTimeAgo(timestamp) {
-            const minutes = Math.floor((Date.now() - timestamp) / 60000);
-            if (minutes < 1) return '방금 전';
-            if (minutes < 60) return `${minutes}분 전`;
-            const hours = Math.floor(minutes / 60);
-            return `${hours}시간 전`;
-        }
-
-        function selectRoom(roomId, roomName) {
-            selectedRoomId = roomId;
-            document.getElementById('joinRoomName').textContent = `🏠 ${roomName}`;
-            showJoin();
+        function fallbackCopyRoomCode() {
+            const textArea = document.createElement('textarea');
+            textArea.value = roomCode;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('방 코드가 복사되었습니다!\n친구에게 공유하세요: ' + roomCode);
         }
 
         // 방 참가
         function joinRoom() {
+            const inputRoomCode = document.getElementById('roomCodeInput').value.trim();
             const guestName = document.getElementById('guestName').value.trim();
             
-            if (!guestName) {
-                alert('닉네임을 입력해주세요!');
+            if (!inputRoomCode || !guestName) {
+                alert('방 코드와 닉네임을 모두 입력해주세요!');
                 return;
             }
 
-            if (!selectedRoomId) {
-                alert('참가할 방을 선택해주세요!');
-                showRoomList();
+            if (!peer) {
+                alert('연결이 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
                 return;
             }
 
@@ -881,39 +776,15 @@
             updateConnectionStatus('방에 연결 중...', false);
             
             try {
-                conn = peer.connect(selectedRoomId);
+                conn = peer.connect(inputRoomCode);
                 
                 conn.on('open', function() {
                     setupConnection();
                     sendMessage({ type: 'playerJoined', name: playerName });
                     
+                    document.getElementById('roomCodeInput').value = '';
                     document.getElementById('guestName').value = '';
                     
-                    // 방 정보 가져오기
-                    if (database) {
-                        try {
-                            database.ref('rooms/' + selectedRoomId).once('value').then((snapshot) => {
-                                const room = snapshot.val();
-                                if (room) {
-                                    document.getElementById('lobbyRoomName').textContent = '🎮 ' + room.name;
-                                }
-                            });
-                        } catch (e) {
-                            const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                            const room = rooms[selectedRoomId];
-                            if (room) {
-                                document.getElementById('lobbyRoomName').textContent = '🎮 ' + room.name;
-                            }
-                        }
-                    } else {
-                        const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                        const room = rooms[selectedRoomId];
-                        if (room) {
-                            document.getElementById('lobbyRoomName').textContent = '🎮 ' + room.name;
-                        }
-                    }
-                    
-                    currentRoomId = selectedRoomId;
                     showLobby();
                     updateLobby();
                 });
@@ -921,8 +792,8 @@
                 conn.on('error', function(err) {
                     console.error('방 참가 실패:', err);
                     updateConnectionStatus('연결 실패', false);
-                    alert('방에 참가할 수 없습니다. 방이 사라졌거나 가득 찼을 수 있습니다.');
-                    showRoomList();
+                    alert('방에 참가할 수 없습니다.\n• 방 코드가 올바른지 확인하세요\n• 방장과 같은 와이파이에 연결되어 있는지 확인하세요');
+                    showJoinRoom();
                 });
                 
             } catch (error) {
@@ -938,18 +809,6 @@
                 conn.close();
                 conn = null;
             }
-            
-            if (currentRoomId) {
-                if (isHost) {
-                    removeRoomFromDatabase(currentRoomId);
-                } else {
-                    updateRoomInDatabase(currentRoomId, { 
-                        guest: null, 
-                        status: 'waiting' 
-                    });
-                }
-            }
-            
             showMain();
         }
 
@@ -990,6 +849,9 @@
                     document.getElementById('lobbyStatus').textContent = '🔄 호스트와 연결 중...';
                 }
             }
+
+            // 호스트 전용 UI 표시/숨김
+            document.getElementById('hostLobby').style.display = isHost ? 'block' : 'none';
         }
 
         // 게임 시작
@@ -1008,7 +870,6 @@
                 gameState: gameState
             });
 
-            updateRoomInDatabase(currentRoomId, { status: 'playing' });
             initGame();
         }
 
@@ -1279,9 +1140,6 @@
                     winner: winner,
                     reason: reason
                 });
-                
-                // 방 상태를 다시 대기로 변경
-                updateRoomInDatabase(currentRoomId, { status: 'waiting' });
             }
 
             // 게임 오버 화면 표시
@@ -1303,7 +1161,7 @@
             // 자동으로 3초 후 로비로 이동
             setTimeout(() => {
                 backToLobby();
-            }, 3000);
+            }, 4000);
         }
 
         // 로비로 돌아가기
@@ -1340,61 +1198,30 @@
                 const activeScreen = document.querySelector('.screen.active');
                 if (activeScreen.id === 'createScreen') {
                     createRoom();
-                } else if (activeScreen.id === 'joinScreen') {
+                } else if (activeScreen.id === 'joinRoomScreen') {
                     joinRoom();
                 }
             }
         });
 
-        // 창 닫기 전 정리
-        window.addEventListener('beforeunload', () => {
-            if (currentRoomId) {
-                if (isHost) {
-                    removeRoomFromDatabase(currentRoomId);
-                } else {
-                    updateRoomInDatabase(currentRoomId, { 
-                        guest: null, 
-                        status: 'waiting' 
-                    });
-                }
-            }
+        // 방 코드 입력시 자동 대문자 변환
+        document.getElementById('roomCodeInput').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
         });
 
         // 페이지 로드 시 초기화
         window.addEventListener('load', () => {
             initPeer();
-            
-            // 5초마다 오래된 방들 정리
-            setInterval(() => {
-                if (database) {
-                    try {
-                        const now = Date.now();
-                        database.ref('rooms').once('value').then((snapshot) => {
-                            const rooms = snapshot.val() || {};
-                            Object.keys(rooms).forEach(roomId => {
-                                if (now - rooms[roomId].created > 600000) { // 10분
-                                    database.ref('rooms/' + roomId).remove();
-                                }
-                            });
-                        });
-                    } catch (e) {
-                        console.log('Firebase 정리 실패');
-                    }
-                } else {
-                    const rooms = JSON.parse(localStorage.getItem('onlineRooms') || '{}');
-                    const now = Date.now();
-                    let changed = false;
-                    Object.keys(rooms).forEach(roomId => {
-                        if (now - rooms[roomId].created > 600000) {
-                            delete rooms[roomId];
-                            changed = true;
-                        }
-                    });
-                    if (changed) {
-                        localStorage.setItem('onlineRooms', JSON.stringify(rooms));
-                    }
-                }
-            }, 30000); // 30초마다 정리
+        });
+
+        // 페이지 언로드 시 연결 정리
+        window.addEventListener('beforeunload', () => {
+            if (conn) {
+                conn.close();
+            }
+            if (peer) {
+                peer.destroy();
+            }
         });
     </script>
 </body>

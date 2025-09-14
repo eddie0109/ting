@@ -422,21 +422,31 @@
             }
         }
 
-        // 화면 전환 함수들
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId + 'Screen').classList.add('active');
+        function leaveRoom() {
+            if (conn) {
+                conn.close();
+            }
+            
+            // 방 정보에서 자신을 제거
+            if (selectedRoomId && rooms[selectedRoomId]) {
+                const room = rooms[selectedRoomId];
+                if (isHost) {
+                    // 호스트가 나가면 방 삭제
+                    const allRooms = JSON.parse(localStorage.getItem('allRooms') || '{}');
+                    delete allRooms[selectedRoomId];
+                    localStorage.setItem('allRooms', JSON.stringify(allRooms));
+                } else {
+                    // 게스트가 나가면 게스트만 제거
+                    room.guest = null;
+                    room.status = 'waiting';
+                    const allRooms = JSON.parse(localStorage.getItem('allRooms') || '{}');
+                    allRooms[selectedRoomId] = room;
+                    localStorage.setItem('allRooms', JSON.stringify(allRooms));
+                }
+            }
+            
+            showMain();
         }
-
-        function showMain() { 
-            showScreen('main'); 
-            resetGame();
-        }
-        
-        function showCreateRoom() { showScreen('create'); }
-        function showJoinRoom() { showScreen('join'); }
-        function showLobby() { showScreen('lobby'); }
-        function showGame() { showScreen('game'); }
 
         function resetGame() {
             if (gameLoop) {

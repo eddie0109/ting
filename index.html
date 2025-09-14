@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>생존자 vs 살인마 게임</title>
+    <title>생존자 vs 살인마 게임 (온라인)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.0/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -68,6 +69,12 @@
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         }
 
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .btn-create {
             background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 100%);
         }
@@ -97,30 +104,15 @@
             border-color: #4ecdc4;
         }
 
-        .room-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin: 1rem 0;
-        }
-
-        .room-item {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .room-item:hover {
+        .room-code {
             background: rgba(78, 205, 196, 0.2);
-            border-color: #4ecdc4;
-        }
-
-        .room-item.full {
-            opacity: 0.5;
-            cursor: not-allowed;
+            border: 2px solid #4ecdc4;
+            padding: 1rem;
+            border-radius: 15px;
+            margin: 1rem 0;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4ecdc4;
         }
 
         .players-grid {
@@ -228,6 +220,24 @@
             color: #4ecdc4;
             font-weight: bold;
         }
+
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        .connected {
+            color: #4ecdc4;
+        }
+
+        .disconnected {
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -236,40 +246,31 @@
         <div id="mainScreen" class="screen active">
             <h1 class="title">생존자 vs 살인마</h1>
             <button class="btn btn-create" onclick="showCreateRoom()">방 만들기</button>
-            <button class="btn" onclick="showRoomList()">방 목록</button>
+            <button class="btn" onclick="showJoinRoom()">방 참가</button>
+            <div class="connection-status" id="connectionStatus">연결 중...</div>
         </div>
 
         <!-- 방 만들기 화면 -->
         <div id="createScreen" class="screen">
             <h2>방 만들기</h2>
-            <input type="text" id="roomName" class="input-field" placeholder="방 이름" maxlength="20">
             <input type="text" id="hostName" class="input-field" placeholder="닉네임" maxlength="15">
-            <button class="btn" onclick="createRoom()">방 만들기</button>
+            <button class="btn" onclick="createRoom()" id="createBtn">방 만들기</button>
             <button class="btn btn-back" onclick="showMain()">돌아가기</button>
         </div>
 
-        <!-- 방 목록 화면 -->
-        <div id="roomListScreen" class="screen">
-            <h2>방 목록</h2>
-            <button class="btn" onclick="loadRooms()" style="margin-bottom: 1rem;">새로고침</button>
-            <div id="roomList" class="room-list">
-                <div style="color: #999;">방 목록을 불러오는 중...</div>
-            </div>
-            <button class="btn btn-back" onclick="showMain()">돌아가기</button>
-        </div>
-
-        <!-- 참가 화면 -->
+        <!-- 방 참가 화면 -->
         <div id="joinScreen" class="screen">
             <h2>방 참가</h2>
-            <p id="joinRoomName" style="color: #4ecdc4; margin-bottom: 1rem;"></p>
+            <input type="text" id="roomCode" class="input-field" placeholder="방 코드 입력" maxlength="20">
             <input type="text" id="guestName" class="input-field" placeholder="닉네임" maxlength="15">
             <button class="btn" onclick="joinRoom()">참가하기</button>
-            <button class="btn btn-back" onclick="showRoomList()">돌아가기</button>
+            <button class="btn btn-back" onclick="showMain()">돌아가기</button>
         </div>
 
         <!-- 로비 화면 -->
         <div id="lobbyScreen" class="screen">
-            <h2 id="lobbyRoomName">게임 로비</h2>
+            <h2>게임 로비</h2>
+            <div class="room-code" id="roomCodeDisplay">방 코드: 생성 중...</div>
             <div class="players-grid">
                 <div class="player-card" id="survivorCard">
                     <div style="font-size: 2rem;">🏃‍♂️</div>
@@ -312,143 +313,231 @@
 
     <script>
         // 전역 변수
-        let currentScreen = 'main';
-        let rooms = {};
-        let currentRoomId = null;
-        let playerData = {
-            id: 'player_' + Math.random().toString(36).substr(2, 9),
-            name: '',
-            role: null
-        };
-        let selectedRoomId = null;
+        let peer;
+        let conn;
+        let isHost = false;
+        let playerName = '';
+        let opponentName = '';
         let gameState = null;
         let gameLoop = null;
         let keys = {};
+        let myRole = null;
+
+        // PeerJS 초기화
+        function initPeer() {
+            peer = new Peer();
+            
+            peer.on('open', function(id) {
+                console.log('PeerJS 연결됨. ID:', id);
+                updateConnectionStatus('연결됨', true);
+            });
+
+            peer.on('connection', function(connection) {
+                console.log('상대방 연결됨');
+                conn = connection;
+                setupConnection();
+                
+                // 방에 참가한 상대방 정보 요청
+                conn.on('data', function(data) {
+                    handleMessage(data);
+                });
+            });
+
+            peer.on('error', function(err) {
+                console.error('PeerJS 에러:', err);
+                updateConnectionStatus('연결 실패', false);
+                alert('연결에 문제가 발생했습니다. 페이지를 새로고침 해주세요.');
+            });
+        }
+
+        function updateConnectionStatus(status, connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.textContent = status;
+            statusEl.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
+        }
+
+        function setupConnection() {
+            conn.on('open', function() {
+                console.log('연결 성공');
+                updateConnectionStatus('상대방 연결됨', true);
+            });
+
+            conn.on('close', function() {
+                console.log('연결 종료');
+                updateConnectionStatus('연결 끊어짐', false);
+                alert('상대방과의 연결이 끊어졌습니다.');
+                showMain();
+            });
+
+            conn.on('error', function(err) {
+                console.error('연결 에러:', err);
+            });
+        }
+
+        function sendMessage(data) {
+            if (conn && conn.open) {
+                conn.send(data);
+            }
+        }
+
+        function handleMessage(data) {
+            console.log('메시지 수신:', data);
+            
+            switch(data.type) {
+                case 'playerJoined':
+                    opponentName = data.name;
+                    updateLobby();
+                    // 호스트는 자신의 정보를 보냄
+                    if (isHost) {
+                        sendMessage({ type: 'hostInfo', name: playerName });
+                    }
+                    break;
+                    
+                case 'hostInfo':
+                    opponentName = data.name;
+                    updateLobby();
+                    break;
+                    
+                case 'gameStart':
+                    gameState = data.gameState;
+                    myRole = 'killer';
+                    initGame();
+                    break;
+                    
+                case 'gameUpdate':
+                    if (gameState) {
+                        Object.assign(gameState, data.gameState);
+                    }
+                    break;
+                    
+                case 'attack':
+                    if (myRole === 'survivor') {
+                        handleAttack();
+                    }
+                    break;
+                    
+                case 'gameEnd':
+                    endGame(data.winner, data.reason);
+                    break;
+            }
+        }
 
         // 화면 전환 함수들
         function showScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId + 'Screen').classList.add('active');
-            currentScreen = screenId;
-            console.log('화면 전환:', screenId);
         }
 
-        function showMain() { showScreen('main'); }
+        function showMain() { 
+            showScreen('main'); 
+            resetGame();
+        }
+        
         function showCreateRoom() { showScreen('create'); }
-        function showRoomList() { showScreen('roomList'); loadRooms(); }
-        function showJoin() { showScreen('join'); }
+        function showJoinRoom() { showScreen('join'); }
         function showLobby() { showScreen('lobby'); }
         function showGame() { showScreen('game'); }
 
+        function resetGame() {
+            if (gameLoop) {
+                clearInterval(gameLoop);
+                gameLoop = null;
+            }
+            gameState = null;
+            isHost = false;
+            myRole = null;
+            playerName = '';
+            opponentName = '';
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+        }
+
         // 방 관리 함수들
         function createRoom() {
-            const roomName = document.getElementById('roomName').value.trim();
             const hostName = document.getElementById('hostName').value.trim();
             
-            console.log('방 만들기 시도:', roomName, hostName);
-            
-            if (!roomName || !hostName) {
-                alert('방 이름과 닉네임을 모두 입력해주세요!');
-                return;
-            }
-
-            const roomId = 'room_' + Date.now();
-            currentRoomId = roomId;
-            playerData.name = hostName;
-            playerData.role = 'host';
-
-            rooms[roomId] = {
-                id: roomId,
-                name: roomName,
-                host: { id: playerData.id, name: hostName },
-                guest: null,
-                status: 'waiting',
-                gameState: null
-            };
-
-            console.log('방 생성 완료:', rooms[roomId]);
-
-            // 입력 필드 초기화
-            document.getElementById('roomName').value = '';
-            document.getElementById('hostName').value = '';
-
-            showLobby();
-            updateLobby();
-        }
-
-        function loadRooms() {
-            const roomList = document.getElementById('roomList');
-            roomList.innerHTML = '';
-
-            console.log('방 목록 로드:', Object.keys(rooms).length + '개');
-
-            if (Object.keys(rooms).length === 0) {
-                roomList.innerHTML = '<div style="color: #999;">현재 생성된 방이 없습니다.</div>';
-                return;
-            }
-
-            Object.values(rooms).forEach(room => {
-                const roomDiv = document.createElement('div');
-                roomDiv.className = 'room-item' + (room.guest ? ' full' : '');
-                
-                const playerCount = room.guest ? '2/2' : '1/2';
-                const status = room.status === 'playing' ? '게임중' : '대기중';
-                
-                roomDiv.innerHTML = `
-                    <div style="font-weight: bold;">${room.name}</div>
-                    <div style="font-size: 0.9em; color: #ccc;">
-                        호스트: ${room.host.name} | ${playerCount} | ${status}
-                    </div>
-                `;
-
-                if (!room.guest && room.status === 'waiting') {
-                    roomDiv.onclick = () => selectRoom(room.id, room.name);
-                }
-
-                roomList.appendChild(roomDiv);
-            });
-        }
-
-        function selectRoom(roomId, roomName) {
-            selectedRoomId = roomId;
-            document.getElementById('joinRoomName').textContent = `방 이름: ${roomName}`;
-            showJoin();
-        }
-
-        function joinRoom() {
-            const guestName = document.getElementById('guestName').value.trim();
-            
-            if (!guestName) {
+            if (!hostName) {
                 alert('닉네임을 입력해주세요!');
                 return;
             }
 
-            const room = rooms[selectedRoomId];
-            if (!room || room.guest) {
-                alert('참가할 수 없는 방입니다!');
-                showRoomList();
+            if (!peer || !peer.id) {
+                alert('연결이 준비되지 않았습니다. 잠시만 기다려주세요.');
                 return;
             }
 
-            currentRoomId = selectedRoomId;
-            playerData.name = guestName;
-            playerData.role = 'guest';
-
-            room.guest = { id: playerData.id, name: guestName };
-
-            console.log('방 참가 완료:', room);
-
-            document.getElementById('guestName').value = '';
+            playerName = hostName;
+            isHost = true;
+            myRole = 'survivor';
+            
+            document.getElementById('hostName').value = '';
+            document.getElementById('roomCodeDisplay').textContent = '방 코드: ' + peer.id;
+            
             showLobby();
             updateLobby();
         }
 
-        function updateLobby() {
-            const room = rooms[currentRoomId];
-            if (!room) return;
-
-            document.getElementById('lobbyRoomName').textContent = room.name;
+        function joinRoom() {
+            const roomCode = document.getElementById('roomCode').value.trim();
+            const guestName = document.getElementById('guestName').value.trim();
             
+            if (!roomCode || !guestName) {
+                alert('방 코드와 닉네임을 모두 입력해주세요!');
+                return;
+            }
+
+            if (!peer || peer.destroyed) {
+                alert('연결이 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+                return;
+            }
+
+            playerName = guestName;
+            isHost = false;
+            myRole = 'killer';
+
+            updateConnectionStatus('방에 연결 중...', false);
+            
+            try {
+                conn = peer.connect(roomCode, {
+                    reliable: true
+                });
+                
+                conn.on('open', function() {
+                    setupConnection();
+                    sendMessage({ type: 'playerJoined', name: playerName });
+                    
+                    document.getElementById('roomCode').value = '';
+                    document.getElementById('guestName').value = '';
+                    document.getElementById('roomCodeDisplay').textContent = '방 코드: ' + roomCode;
+                    
+                    showLobby();
+                    updateLobby();
+                    updateConnectionStatus('연결됨', true);
+                });
+
+                conn.on('error', function(err) {
+                    console.error('방 참가 실패:', err);
+                    updateConnectionStatus('연결 실패', false);
+                    alert('방에 참가할 수 없습니다.\n\n가능한 원인:\n1. 잘못된 방 코드\n2. 방이 이미 가득참\n3. 네트워크 문제');
+                });
+                
+                // 연결 타임아웃
+                setTimeout(() => {
+                    if (!conn || conn.open !== true) {
+                        updateConnectionStatus('연결 시간 초과', false);
+                        alert('연결 시간이 초과되었습니다. 방 코드를 다시 확인해주세요.');
+                    }
+                }, 10000);
+                
+            } catch (error) {
+                console.error('연결 생성 실패:', error);
+                alert('연결을 생성할 수 없습니다. 페이지를 새로고침 해주세요.');
+            }
+        }
+
+        function updateLobby() {
             const survivorCard = document.getElementById('survivorCard');
             const killerCard = document.getElementById('killerCard');
             const survivorName = document.getElementById('survivorName');
@@ -458,66 +547,60 @@
             survivorCard.classList.remove('occupied');
             killerCard.classList.remove('occupied');
 
-            // 호스트 (생존자)
-            if (room.host) {
+            // 역할별 이름 표시
+            if (isHost) {
                 survivorCard.classList.add('occupied');
-                survivorName.textContent = room.host.name;
-            }
-
-            // 게스트 (살인마)
-            if (room.guest) {
-                killerCard.classList.add('occupied');
-                killerName.textContent = room.guest.name;
+                survivorName.textContent = playerName;
                 
-                document.getElementById('lobbyStatus').textContent = '게임을 시작할 수 있습니다!';
-                if (playerData.role === 'host') {
+                if (opponentName) {
+                    killerCard.classList.add('occupied');
+                    killerName.textContent = opponentName;
+                    document.getElementById('lobbyStatus').textContent = '게임을 시작할 수 있습니다!';
                     document.getElementById('startBtn').style.display = 'block';
+                } else {
+                    killerName.textContent = '대기 중...';
+                    document.getElementById('lobbyStatus').textContent = '플레이어를 기다리는 중...';
+                    document.getElementById('startBtn').style.display = 'none';
                 }
             } else {
-                killerName.textContent = '대기 중...';
-                document.getElementById('lobbyStatus').textContent = '플레이어를 기다리는 중...';
-                document.getElementById('startBtn').style.display = 'none';
+                killerCard.classList.add('occupied');
+                killerName.textContent = playerName;
+                
+                if (opponentName) {
+                    survivorCard.classList.add('occupied');
+                    survivorName.textContent = opponentName;
+                    document.getElementById('lobbyStatus').textContent = '호스트가 게임을 시작하기를 기다리는 중...';
+                }
             }
         }
 
         function leaveRoom() {
-            const room = rooms[currentRoomId];
-            if (room) {
-                if (playerData.role === 'host') {
-                    // 호스트가 나가면 방 삭제
-                    delete rooms[currentRoomId];
-                } else {
-                    // 게스트가 나가면 게스트만 제거
-                    room.guest = null;
-                    room.status = 'waiting';
-                }
+            if (conn) {
+                conn.close();
             }
-
-            currentRoomId = null;
-            playerData.role = null;
             showMain();
         }
 
         // 게임 관련 함수들
         function startGame() {
-            if (playerData.role !== 'host') return;
+            if (!isHost || !conn || !opponentName) return;
 
-            const room = rooms[currentRoomId];
-            if (!room || !room.guest) return;
-
-            room.status = 'playing';
-            room.gameState = {
+            gameState = {
                 survivor: { x: 50, y: 50, health: 100 },
                 killer: { x: 700, y: 500, attackCooldown: 0 },
                 time: 0,
                 running: true
             };
 
+            sendMessage({ 
+                type: 'gameStart',
+                gameState: gameState
+            });
+
             initGame();
         }
 
         function initGame() {
-            gameState = rooms[currentRoomId].gameState;
             showGame();
             createGameObjects();
             startGameLoop();
@@ -526,7 +609,7 @@
         function createGameObjects() {
             const gameArea = document.getElementById('gameArea');
             
-            // 기존 플레이어 제거
+            // 기존 오브젝트 제거
             gameArea.querySelectorAll('.player, .obstacle').forEach(el => el.remove());
 
             // 생존자
@@ -575,7 +658,7 @@
             }, 1000/60);
 
             // 타이머 (호스트만)
-            if (playerData.role === 'host') {
+            if (isHost) {
                 const timer = setInterval(() => {
                     if (!gameState || !gameState.running) {
                         clearInterval(timer);
@@ -592,14 +675,13 @@
         }
 
         function updateGame() {
-            // 플레이어 움직임
             const speed = 4;
-            const myPlayer = playerData.role === 'host' ? gameState.survivor : gameState.killer;
+            let player = myRole === 'survivor' ? gameState.survivor : gameState.killer;
+            
+            let newX = player.x;
+            let newY = player.y;
 
-            let newX = myPlayer.x;
-            let newY = myPlayer.y;
-
-            if (playerData.role === 'host') {
+            if (myRole === 'survivor') {
                 // 생존자 조작 (WASD)
                 if (keys['w'] || keys['W']) newY -= speed;
                 if (keys['s'] || keys['S']) newY += speed;
@@ -615,8 +697,14 @@
 
             // 경계 체크
             if (newX >= 0 && newX <= 760 && newY >= 0 && newY <= 560) {
-                myPlayer.x = newX;
-                myPlayer.y = newY;
+                player.x = newX;
+                player.y = newY;
+                
+                // 위치 업데이트를 상대방에게 전송
+                sendMessage({
+                    type: 'gameUpdate',
+                    gameState: { [myRole]: player }
+                });
             }
 
             // 공격 쿨다운
@@ -645,29 +733,41 @@
         }
 
         function attack() {
-            if (playerData.role !== 'guest' || gameState.killer.attackCooldown > 0) return;
+            if (myRole !== 'killer' || gameState.killer.attackCooldown > 0) return;
 
             const dx = gameState.killer.x - gameState.survivor.x;
             const dy = gameState.killer.y - gameState.survivor.y;
             const distance = Math.sqrt(dx*dx + dy*dy);
 
             if (distance <= 60) {
-                gameState.survivor.health -= 25;
                 gameState.killer.attackCooldown = 60;
+                sendMessage({ type: 'attack' });
+            }
+        }
 
-                if (gameState.survivor.health <= 0) {
-                    endGame('killer', '살인마가 생존자를 잡았습니다!');
-                }
+        function handleAttack() {
+            gameState.survivor.health -= 25;
+            
+            if (gameState.survivor.health <= 0) {
+                endGame('killer', '살인마가 생존자를 잡았습니다!');
             }
         }
 
         function endGame(winner, reason) {
             gameState.running = false;
-            rooms[currentRoomId].status = 'waiting';
 
             if (gameLoop) {
                 clearInterval(gameLoop);
                 gameLoop = null;
+            }
+
+            // 게임 종료를 상대방에게 알림
+            if (isHost) {
+                sendMessage({
+                    type: 'gameEnd',
+                    winner: winner,
+                    reason: reason
+                });
             }
 
             const gameOver = document.getElementById('gameOver');
@@ -700,7 +800,7 @@
         // 키보드 이벤트
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            if (e.code === 'Space' && currentScreen === 'game') {
+            if (e.code === 'Space' && document.getElementById('gameScreen').classList.contains('active')) {
                 e.preventDefault();
                 attack();
             }
@@ -710,9 +810,10 @@
             keys[e.key] = false;
         });
 
-        // 초기화
-        console.log('게임 초기화 완료');
-        console.log('플레이어 ID:', playerData.id);
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            initPeer();
+        });
     </script>
 </body>
 </html>
